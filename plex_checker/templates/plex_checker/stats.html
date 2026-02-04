@@ -1,0 +1,93 @@
+{% extends 'plex_checker/base.html' %}
+
+{% block title %}Statistics - Plex Checker{% endblock %}
+
+{% block content %}
+<div class="stats-container">
+    <h2>Search Statistics</h2>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_searches }}</div>
+            <div class="stat-label">Total Searches</div>
+        </div>
+
+        <div class="stat-card stat-success">
+            <div class="stat-value">{{ found_count }}</div>
+            <div class="stat-label">Found</div>
+        </div>
+
+        <div class="stat-card stat-warning">
+            <div class="stat-value">{{ not_found_count }}</div>
+            <div class="stat-label">Not Found</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-value">
+                {% if total_searches > 0 %}
+                    {{ found_count|floatformat:0 }}%
+                {% else %}
+                    0%
+                {% endif %}
+            </div>
+            <div class="stat-label">Success Rate</div>
+        </div>
+    </div>
+
+    <div class="search-type-stats">
+        <h3>Searches by Type</h3>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ search_type_stats.exact }}</div>
+                <div class="stat-label">Exact Matches</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ search_type_stats.fuzzy }}</div>
+                <div class="stat-label">Fuzzy Matches</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ search_type_stats.server }}</div>
+                <div class="stat-label">Server Searches</div>
+            </div>
+        </div>
+    </div>
+
+    {% if recent_searches %}
+    <div class="recent-searches-table">
+        <h3>Recent Search History</h3>
+        <table class="search-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Type</th>
+                    <th>Result</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for search in recent_searches %}
+                <tr class="{% if search.found %}row-found{% else %}row-not-found{% endif %}">
+                    <td>{{ search.title }}</td>
+                    <td><span class="badge">{{ search.search_type|upper }}</span></td>
+                    <td>
+                        {% if search.found %}
+                            <span class="status-found">✓ Found</span>
+                        {% else %}
+                            <span class="status-not-found">✗ Not Found</span>
+                        {% endif %}
+                    </td>
+                    <td class="time-cell">{{ search.created_at|date:"M d, Y H:i" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="no-data">No search history yet. Start searching!</p>
+    {% endif %}
+
+    <div class="actions">
+        <a href="{% url 'plex_checker:index' %}" class="btn btn-primary">← Back to Search</a>
+    </div>
+</div>
+{% endblock %}

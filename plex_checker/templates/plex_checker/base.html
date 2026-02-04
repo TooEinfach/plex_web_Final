@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Plex Checker{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'plex_checker/css/style.css' %}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>🎬 Plex Checker</h1>
+            </div>
+            <div class="nav-links">
+                <a href="{% url 'plex_checker:index' %}" class="nav-link">Search</a>
+                <a href="{% url 'plex_checker:stats' %}" class="nav-link">Stats</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 Plex Checker | Connected to: {{ PLEX_BASE|default:"Not configured" }}</p>
+        </div>
+    </footer>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

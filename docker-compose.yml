@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  plex-checker:
+    build: .
+    container_name: plex-checker
+    ports:
+      - "8000:8000"
+    environment:
+      # Plex Configuration
+      - PLEX_BASE=${PLEX_BASE:-http://10.0.0.208:32400}
+      - PLEX_TOKEN=${PLEX_TOKEN}
+      
+      # Django Configuration
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-please-change-this-in-production}
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-False}
+      - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-*}
+      
+      # Cache Configuration
+      - CACHE_TTL=${CACHE_TTL:-21600}
+    
+    volumes:
+      # Persistent database
+      - plex-checker-db:/app/db.sqlite3
+      # Cache directory
+      - plex-checker-cache:/cache
+      # Optional: Mount .env file
+      # - ./.env:/app/.env:ro
+    
+    restart: unless-stopped
+    
+    networks:
+      - plex-network
+
+networks:
+  plex-network:
+    driver: bridge
+
+volumes:
+  plex-checker-db:
+  plex-checker-cache:

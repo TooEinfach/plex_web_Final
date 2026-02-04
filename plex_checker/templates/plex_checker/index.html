@@ -1,0 +1,236 @@
+{% extends 'plex_checker/base.html' %}
+
+{% block title %}Search - Plex Checker{% endblock %}
+
+{% block content %}
+<div class="search-container">
+    <h2>Search Your Plex Library</h2>
+    
+    <form id="searchForm" class="search-form">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="title">Movie or Show Title:</label>
+            <input type="text" id="title" name="title" class="form-input" 
+                   placeholder="Enter title to search..." required autofocus>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="search_type">Search Type:</label>
+                <select id="search_type" name="search_type" class="form-select">
+                    <option value="auto">Auto (Exact → Fuzzy → Server)</option>
+                    <option value="exact">Exact Match Only</option>
+                    <option value="fuzzy">Fuzzy Match</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="section_id">Library:</label>
+                <select id="section_id" name="section_id" class="form-select">
+                    <option value="all">All Libraries</option>
+                    {% for library in libraries %}
+                    <option value="{{ library.id }}">{{ library.title }} ({{ library.type }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="threshold">Fuzzy Threshold:</label>
+                <input type="number" id="threshold" name="threshold" 
+                       class="form-input" value="85" min="0" max="100">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="searchBtn">
+                🔍 Search
+            </button>
+            <button type="button" class="btn btn-secondary" id="refreshCacheBtn">
+                🔄 Refresh Cache
+            </button>
+        </div>
+    </form>
+
+    <div id="loadingIndicator" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <p>Searching...</p>
+    </div>
+
+    <div id="resultsContainer" class="results-container" style="display: none;">
+        <div class="results-header">
+            <h3 id="resultsTitle"></h3>
+            <span id="resultsCount" class="badge"></span>
+        </div>
+        <div id="resultsContent"></div>
+    </div>
+
+    {% if recent_searches %}
+    <div class="recent-searches">
+        <h3>Recent Searches</h3>
+        <ul class="search-history">
+            {% for search in recent_searches %}
+            <li class="search-item {% if search.found %}found{% else %}not-found{% endif %}">
+                <span class="search-title">{{ search.title }}</span>
+                <span class="search-meta">
+                    {{ search.search_type|upper }} - 
+                    {% if search.found %}
+                        <span class="status-found">✓ Found</span>
+                    {% else %}
+                        <span class="status-not-found">✗ Not Found</span>
+                    {% endif %}
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchForm = document.getElementById('searchForm');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const resultsContainer = document.getElementById('resultsContainer');
+    const resultsContent = document.getElementById('resultsContent');
+    const resultsTitle = document.getElementById('resultsTitle');
+    const resultsCount = document.getElementById('resultsCount');
+    const searchBtn = document.getElementById('searchBtn');
+    const refreshCacheBtn = document.getElementById('refreshCacheBtn');
+
+    searchForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(searchForm);
+        
+        // Show loading
+        loadingIndicator.style.display = 'block';
+        resultsContainer.style.display = 'none';
+        searchBtn.disabled = true;
+
+        try {
+            const response = await fetch('{% url "plex_checker:search" %}', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                displayResults(data);
+            } else {
+                displayError(data.error || 'Search failed');
+            }
+        } catch (error) {
+            displayError('Network error: ' + error.message);
+        } finally {
+            loadingIndicator.style.display = 'none';
+            searchBtn.disabled = false;
+        }
+    });
+
+    refreshCacheBtn.addEventListener('click', async function() {
+        if (!confirm('Refresh cache? This may take a while for large libraries.')) {
+            return;
+        }
+
+        refreshCacheBtn.disabled = true;
+        refreshCacheBtn.textContent = '🔄 Refreshing...';
+
+        try {
+            const response = await fetch('{% url "plex_checker:refresh_cache" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                alert(data.message);
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (error) {
+            alert('Network error: ' + error.message);
+        } finally {
+            refreshCacheBtn.disabled = false;
+            refreshCacheBtn.textContent = '🔄 Refresh Cache';
+        }
+    });
+
+    function displayResults(data) {
+        resultsContainer.style.display = 'block';
+        
+        const searchTypeLabel = {
+            'exact': 'Exact Match',
+            'fuzzy': 'Fuzzy Match',
+            'server': 'Server Search'
+        }[data.search_type] || data.search_type;
+
+        resultsTitle.textContent = data.found ? 
+            `✓ ${searchTypeLabel} Results` : 
+            '✗ No Results Found';
+        
+        resultsCount.textContent = `${data.count} result${data.count !== 1 ? 's' : ''}`;
+        resultsCount.className = data.found ? 'badge badge-success' : 'badge badge-warning';
+
+        if (data.results.length > 0) {
+            let html = '<div class="results-grid">';
+            
+            data.results.forEach(result => {
+                html += `
+                    <div class="result-card">
+                        <div class="result-title">${escapeHtml(result.title)}</div>
+                        <div class="result-meta">
+                            <span class="result-year">${result.year || 'N/A'}</span>
+                            <span class="result-type">${result.type || 'Unknown'}</span>
+                            ${result.library ? `<span class="result-library">${escapeHtml(result.library)}</span>` : ''}
+                            ${result.score ? `<span class="result-score">Score: ${result.score}</span>` : ''}
+                        </div>
+                        ${result.summary ? `<div class="result-summary">${escapeHtml(result.summary)}</div>` : ''}
+                        <div class="result-key">Rating Key: ${result.ratingKey}</div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            resultsContent.innerHTML = html;
+        } else {
+            resultsContent.innerHTML = '<p class="no-results">No matches found. Try a different search term or use fuzzy matching.</p>';
+        }
+    }
+
+    function displayError(message) {
+        resultsContainer.style.display = 'block';
+        resultsTitle.textContent = '⚠ Error';
+        resultsCount.textContent = '';
+        resultsContent.innerHTML = `<div class="error-message">${escapeHtml(message)}</div>`;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+});
+</script>
+{% endblock %}
