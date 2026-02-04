@@ -3,11 +3,18 @@
 {% block title %}Search - Plex Checker{% endblock %}
 
 {% block content %}
+<div class="hero">
+    <h1>Find Your Media Instantly</h1>
+    <p class="subtitle">Search your entire Plex library with smart matching and fuzzy search</p>
+</div>
+
 <div class="search-container">
     <h2>Search Your Plex Library</h2>
     
     <form id="searchForm" class="search-form">
         {% csrf_token %}
+        
+        <h2>Search Library</h2>
         
         <div class="form-group">
             <label for="title">Movie or Show Title:</label>
