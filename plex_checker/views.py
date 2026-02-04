@@ -1,11 +1,12 @@
 """
 Views for Plex Checker web interface
 """
-from django.shortcuts import render
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.utils import timezone
 from .plex_service import plex_service
-from .models import SearchHistory
+from .models import SearchHistory, ToDoItem
 import logging
 
 logger = logging.getLogger(__name__)
@@ -154,3 +155,113 @@ def stats(request):
     }
     
     return render(request, 'plex_checker/stats.html', context)
+
+
+def todo_list(request):
+    """Display to-do list"""
+    pending_items = ToDoItem.objects.filter(completed=False).order_by('-priority', '-created_at')
+    completed_items = ToDoItem.objects.filter(completed=True).order_by('-completed_at')[:20]
+    
+    # Statistics
+    total_items = ToDoItem.objects.count()
+    pending_count = pending_items.count()
+    completed_count = ToDoItem.objects.filter(completed=True).count()
+    
+    # Priority breakdown
+    high_priority = ToDoItem.objects.filter(completed=False, priority='high').count()
+    medium_priority = ToDoItem.objects.filter(completed=False, priority='medium').count()
+    low_priority = ToDoItem.objects.filter(completed=False, priority='low').count()
+    
+    context = {
+        'pending_items': pending_items,
+        'completed_items': completed_items,
+        'total_items': total_items,
+        'pending_count': pending_count,
+        'completed_count': completed_count,
+        'high_priority': high_priority,
+        'medium_priority': medium_priority,
+        'low_priority': low_priority,
+    }
+    
+    return render(request, 'plex_checker/todo.html', context)
+
+
+@require_http_methods(["POST"])
+def add_todo(request):
+    """Add item to to-do list"""
+    try:
+        title = request.POST.get('title', '').strip()
+        media_type = request.POST.get('media_type', 'movie')
+        notes = request.POST.get('notes', '').strip()
+        priority = request.POST.get('priority', 'medium')
+        
+        if not title:
+            return JsonResponse({'error': 'Title is required'}, status=400)
+        
+        todo_item = ToDoItem.objects.create(
+            title=title,
+            media_type=media_type,
+            notes=notes,
+            priority=priority
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Added "{title}" to your to-do list',
+            'id': todo_item.id
+        })
+        
+    except Exception as e:
+        logger.error(f"Add to-do error: {e}", exc_info=True)
+        return JsonResponse({
+            'error': str(e),
+            'success': False
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+def toggle_todo(request, todo_id):
+    """Toggle todo item completion status"""
+    try:
+        todo_item = get_object_or_404(ToDoItem, id=todo_id)
+        todo_item.completed = not todo_item.completed
+        
+        if todo_item.completed:
+            todo_item.completed_at = timezone.now()
+        else:
+            todo_item.completed_at = None
+        
+        todo_item.save()
+        
+        return JsonResponse({
+            'success': True,
+            'completed': todo_item.completed
+        })
+        
+    except Exception as e:
+        logger.error(f"Toggle to-do error: {e}", exc_info=True)
+        return JsonResponse({
+            'error': str(e),
+            'success': False
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+def delete_todo(request, todo_id):
+    """Delete todo item"""
+    try:
+        todo_item = get_object_or_404(ToDoItem, id=todo_id)
+        title = todo_item.title
+        todo_item.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Deleted "{title}"'
+        })
+        
+    except Exception as e:
+        logger.error(f"Delete to-do error: {e}", exc_info=True)
+        return JsonResponse({
+            'error': str(e),
+            'success': False
+        }, status=500)

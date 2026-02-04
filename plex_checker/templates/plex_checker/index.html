@@ -200,7 +200,16 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '</div>';
             resultsContent.innerHTML = html;
         } else {
-            resultsContent.innerHTML = '<p class="no-results">No matches found. Try a different search term or use fuzzy matching.</p>';
+            const searchedTitle = document.getElementById('title').value;
+            resultsContent.innerHTML = `
+                <div class="no-results">
+                    <p>No matches found for "${escapeHtml(searchedTitle)}"</p>
+                    <p>Would you like to add it to your to-do list?</p>
+                    <button class="btn btn-primary" onclick="addToTodoFromSearch('${escapeHtml(searchedTitle)}')">
+                        ➕ Add to To-Do List
+                    </button>
+                </div>
+            `;
         }
     }
 
@@ -231,6 +240,34 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         return cookieValue;
     }
+
+    // Make function global for onclick handler
+    window.addToTodoFromSearch = async function(title) {
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('media_type', 'movie');  // Default to movie
+        formData.append('priority', 'medium');
+        formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+
+        try {
+            const response = await fetch('{% url "plex_checker:add_todo" %}', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                if (confirm(data.message + '\n\nGo to To-Do list now?')) {
+                    window.location.href = '{% url "plex_checker:todo_list" %}';
+                }
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (error) {
+            alert('Network error: ' + error.message);
+        }
+    };
 });
 </script>
 {% endblock %}
