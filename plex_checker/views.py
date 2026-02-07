@@ -220,6 +220,51 @@ def add_todo(request):
 
 
 @require_http_methods(["POST"])
+def edit_todo(request, todo_id):
+    """Edit a to-do item"""
+    try:
+        todo_item = get_object_or_404(ToDoItem, id=todo_id)
+        
+        title = request.POST.get('title', '').strip()
+        media_type = request.POST.get('media_type')
+        notes = request.POST.get('notes', '').strip()
+        priority = request.POST.get('priority')
+        
+        if not title:
+            return JsonResponse({'error': 'Title is required'}, status=400)
+        
+        # Update fields
+        todo_item.title = title
+        if media_type:
+            todo_item.media_type = media_type
+        if priority:
+            todo_item.priority = priority
+        todo_item.notes = notes
+        todo_item.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Updated "{title}"',
+            'item': {
+                'id': todo_item.id,
+                'title': todo_item.title,
+                'media_type': todo_item.media_type,
+                'media_type_display': todo_item.get_media_type_display(),
+                'priority': todo_item.priority,
+                'priority_display': todo_item.get_priority_display(),
+                'notes': todo_item.notes or '',
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Edit to-do error: {e}", exc_info=True)
+        return JsonResponse({
+            'error': str(e),
+            'success': False
+        }, status=500)
+
+
+@require_http_methods(["POST"])
 def toggle_todo(request, todo_id):
     """Toggle todo item completion status"""
     try:

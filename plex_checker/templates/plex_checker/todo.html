@@ -91,18 +91,23 @@
                 </div>
                 <div class="todo-content">
                     <div class="todo-header">
-                        <span class="todo-title">{{ item.title }}</span>
-                        <span class="badge badge-{{ item.media_type }}">{{ item.get_media_type_display }}</span>
-                        <span class="badge badge-priority-{{ item.priority }}">{{ item.get_priority_display }}</span>
+                        <span class="todo-title" data-title="{{ item.title }}">{{ item.title }}</span>
+                        <span class="badge badge-{{ item.media_type }}" data-media-type="{{ item.media_type }}">{{ item.get_media_type_display }}</span>
+                        <span class="badge badge-priority-{{ item.priority }}" data-priority="{{ item.priority }}">{{ item.get_priority_display }}</span>
                     </div>
                     {% if item.notes %}
-                    <div class="todo-notes">{{ item.notes }}</div>
+                    <div class="todo-notes" data-notes="{{ item.notes }}">{{ item.notes }}</div>
+                    {% else %}
+                    <div class="todo-notes" data-notes="" style="display: none;"></div>
                     {% endif %}
                     <div class="todo-meta">
                         Added {{ item.created_at|date:"M d, Y" }}
                     </div>
                 </div>
                 <div class="todo-actions">
+                    <button class="btn-icon btn-edit" onclick="editTodo({{ item.id }})" title="Edit">
+                        ✏️
+                    </button>
                     <button class="btn-icon btn-delete" onclick="deleteTodo({{ item.id }})" title="Delete">
                         🗑️
                     </button>
@@ -129,11 +134,13 @@
                 </div>
                 <div class="todo-content">
                     <div class="todo-header">
-                        <span class="todo-title">{{ item.title }}</span>
-                        <span class="badge badge-{{ item.media_type }}">{{ item.get_media_type_display }}</span>
+                        <span class="todo-title" data-title="{{ item.title }}">{{ item.title }}</span>
+                        <span class="badge badge-{{ item.media_type }}" data-media-type="{{ item.media_type }}">{{ item.get_media_type_display }}</span>
                     </div>
                     {% if item.notes %}
-                    <div class="todo-notes">{{ item.notes }}</div>
+                    <div class="todo-notes" data-notes="{{ item.notes }}">{{ item.notes }}</div>
+                    {% else %}
+                    <div class="todo-notes" data-notes="" style="display: none;"></div>
                     {% endif %}
                     <div class="todo-meta">
                         Completed {{ item.completed_at|date:"M d, Y" }}
@@ -154,12 +161,63 @@
         <a href="{% url 'plex_checker:index' %}" class="btn btn-secondary">← Back to Search</a>
     </div>
 </div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Edit To-Do Item</h3>
+            <button class="modal-close" onclick="closeEditModal()">✕</button>
+        </div>
+        <form id="editTodoForm">
+            {% csrf_token %}
+            <input type="hidden" id="edit_todo_id" name="todo_id">
+            
+            <div class="form-group">
+                <label for="edit_title">Title:</label>
+                <input type="text" id="edit_title" name="title" class="form-input" required>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="edit_media_type">Type:</label>
+                    <select id="edit_media_type" name="media_type" class="form-select">
+                        <option value="movie">Movie</option>
+                        <option value="tv">TV Show</option>
+                        <option value="music">Music</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_priority">Priority:</label>
+                    <select id="edit_priority" name="priority" class="form-select">
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="edit_notes">Notes:</label>
+                <textarea id="edit_notes" name="notes" class="form-textarea" rows="3"></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">💾 Save Changes</button>
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const addTodoForm = document.getElementById('addTodoForm');
+    const editTodoForm = document.getElementById('editTodoForm');
     const messageArea = document.getElementById('messageArea');
 
     addTodoForm.addEventListener('submit', async function(e) {
@@ -187,7 +245,91 @@ document.addEventListener('DOMContentLoaded', function() {
             showMessage('Network error: ' + error.message, 'error');
         }
     });
+
+    editTodoForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const todoId = document.getElementById('edit_todo_id').value;
+        const formData = new FormData(editTodoForm);
+        
+        try {
+            const response = await fetch(`/todo/${todoId}/edit/`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showMessage(data.message, 'success');
+                closeEditModal();
+                // Update the item in the DOM without reloading
+                updateTodoItemInDOM(data.item);
+            } else {
+                showMessage(data.error || 'Failed to update item', 'error');
+            }
+        } catch (error) {
+            showMessage('Network error: ' + error.message, 'error');
+        }
+    });
 });
+
+function editTodo(todoId) {
+    const todoItem = document.querySelector(`.todo-item[data-id="${todoId}"]`);
+    if (!todoItem) return;
+
+    // Get current values from the DOM
+    const title = todoItem.querySelector('.todo-title').dataset.title;
+    const mediaType = todoItem.querySelector('.badge[data-media-type]').dataset.mediaType;
+    const priority = todoItem.querySelector('.badge[data-priority]').dataset.priority;
+    const notes = todoItem.querySelector('.todo-notes').dataset.notes || '';
+
+    // Populate the edit form
+    document.getElementById('edit_todo_id').value = todoId;
+    document.getElementById('edit_title').value = title;
+    document.getElementById('edit_media_type').value = mediaType;
+    document.getElementById('edit_priority').value = priority;
+    document.getElementById('edit_notes').value = notes;
+
+    // Show the modal
+    document.getElementById('editModal').style.display = 'flex';
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').style.display = 'none';
+}
+
+function updateTodoItemInDOM(item) {
+    const todoItem = document.querySelector(`.todo-item[data-id="${item.id}"]`);
+    if (!todoItem) {
+        // If not found, just reload the page
+        location.reload();
+        return;
+    }
+
+    // Update title
+    const titleElem = todoItem.querySelector('.todo-title');
+    titleElem.textContent = item.title;
+    titleElem.dataset.title = item.title;
+
+    // Update media type badge
+    const mediaTypeBadge = todoItem.querySelector('.badge[data-media-type]');
+    mediaTypeBadge.className = `badge badge-${item.media_type}`;
+    mediaTypeBadge.textContent = item.media_type_display;
+    mediaTypeBadge.dataset.mediaType = item.media_type;
+
+    // Update priority badge
+    const priorityBadge = todoItem.querySelector('.badge[data-priority]');
+    priorityBadge.className = `badge badge-priority-${item.priority}`;
+    priorityBadge.textContent = item.priority_display;
+    priorityBadge.dataset.priority = item.priority;
+
+    // Update notes
+    const notesElem = todoItem.querySelector('.todo-notes');
+    notesElem.textContent = item.notes;
+    notesElem.dataset.notes = item.notes;
+    notesElem.style.display = item.notes ? 'block' : 'none';
+}
 
 async function toggleTodo(todoId) {
     try {
@@ -266,6 +408,14 @@ function getCookie(name) {
         }
     }
     return cookieValue;
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('editModal');
+    if (event.target == modal) {
+        closeEditModal();
+    }
 }
 </script>
 {% endblock %}

@@ -249,6 +249,19 @@ label {
     transition: all 0.3s;
 }
 
+/* FIX: Dropdown option visibility - this is the key fix for your bug */
+.form-select option {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    padding: 0.5rem;
+}
+
+/* Ensure dropdown menu is readable on all browsers */
+.form-select optgroup {
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
 .form-input:focus,
 .form-select:focus,
 .form-textarea:focus {
@@ -849,4 +862,86 @@ label {
     .todo-item { flex-direction: column; }
     .todo-header { flex-direction: column; align-items: flex-start; }
     .todo-actions { align-self: flex-end; margin-top: -2rem; }
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: var(--bg-card);
+    margin: auto;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: var(--shadow-hover);
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2rem 2rem 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    line-height: 1;
+    transition: all 0.3s;
+}
+
+.modal-close:hover {
+    color: var(--text-primary);
+    transform: scale(1.1);
+}
+
+.modal form {
+    padding: 2rem;
+}
+
+/* Edit button styling */
+.btn-edit {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: var(--accent-blue);
+}
+
+.btn-edit:hover {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: var(--accent-blue);
 }
