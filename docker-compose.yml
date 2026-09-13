@@ -34,6 +34,3 @@ networks:
   plex-network:
     driver: bridge
 
-volumes:
-  plex-checker-db:
-  plex-checker-cache:
