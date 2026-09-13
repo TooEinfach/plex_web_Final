@@ -1,0 +1,12 @@
+gunicorn.ctl
+*.ctl
+*.sock
+.git
+.gitignore
+.env
+db.sqlite3
+staticfiles/
+cache/
+*.md
+__pycache__/
+*.pyc
