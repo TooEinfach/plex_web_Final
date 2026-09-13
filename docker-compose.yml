@@ -20,12 +20,10 @@ services:
       - CACHE_TTL=${CACHE_TTL:-21600}
     
     volumes:
-      # Persistent database
-      - plex-checker-db:/app/db.sqlite3
-      # Cache directory
-      - plex-checker-cache:/cache
-      # Optional: Mount .env file
-      # - ./.env:/app/.env:ro
+      # Bind-mount the actual sqlite file that's already on disk
+      - ./db.sqlite3:/app/db.sqlite3
+      # Cache directory (see note below)
+      - ./cache:/cache
     
     restart: unless-stopped
     

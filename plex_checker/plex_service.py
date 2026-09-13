@@ -127,6 +127,11 @@ class PlexService:
         
         matches = []
         for r in results:
+            # Only include actual media items (movie, show, episode, track, etc.)
+            item_type = getattr(r, "type", None)
+            if item_type not in ['movie', 'show', 'season', 'episode', 'artist', 'album', 'track']:
+                continue
+                
             if getattr(r, "title", "").strip().lower() == title_norm:
                 matches.append({
                     "title": r.title,
@@ -184,14 +189,14 @@ class PlexService:
     
     def search_server(self, title, limit=20):
         """
-        Fallback server search (returns mixed results)
+        Fallback server search (returns mixed results, filtered to media only)
         
         Args:
             title: Title to search for
             limit: Maximum number of results to return
             
         Returns:
-            List of server search results
+            List of server search results (media items only)
         """
         try:
             results = self.server.search(title)
@@ -199,19 +204,33 @@ class PlexService:
             logger.error(f"Server search failed: {e}")
             return []
         
+        # Valid media types to include in results
+        valid_types = ['movie', 'show', 'season', 'episode', 'artist', 'album', 'track']
+        
         formatted = []
-        for r in results[:limit]:
+        for r in results:
+            # Skip non-media items (tags, actors, genres, etc.)
+            item_type = getattr(r, "type", None)
+            if item_type not in valid_types:
+                logger.debug(f"Skipping non-media item: {getattr(r, 'tag', getattr(r, 'title', 'unknown'))} (type: {item_type})")
+                continue
+            
             title_val = (getattr(r, "title", None) or 
                         getattr(r, "name", None) or 
                         getattr(r, "tag", None) or 
                         "<unknown>")
+            
             formatted.append({
                 "title": title_val,
                 "year": getattr(r, "year", "n/a"),
-                "type": getattr(r, "type", type(r).__name__),
+                "type": item_type,
                 "library": getattr(r, "librarySectionTitle", "n/a"),
-                "ratingKey": getattr(r, "ratingKey", "n/a")
+                "ratingKey": getattr(r, "ratingKey", "n/a"),
+                "summary": getattr(r, "summary", "")[:200] if hasattr(r, "summary") else ""
             })
+            
+            if len(formatted) >= limit:
+                break
         
         return formatted
     
